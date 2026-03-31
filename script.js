@@ -186,8 +186,8 @@ const Section = ({ id, className = "", children }) => (
 );
 
 const App = () => {
-  const [selectedUnit, setSelectedUnit] = useState(() => localStorage.getItem("iponUnit") || "");
-  const [gateOpen, setGateOpen] = useState(() => !localStorage.getItem("iponUnit"));
+  const [selectedUnit, setSelectedUnit] = useState(() => localStorage.getItem("IPPONUnit") || "");
+  const [gateOpen, setGateOpen] = useState(() => !localStorage.getItem("IPPONUnit"));
   const [filter, setFilter] = useState("all");
   const [cart, setCart] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -296,7 +296,7 @@ const App = () => {
 
   const handleSelectUnit = (unitKey) => {
     setSelectedUnit(unitKey);
-    localStorage.setItem("iponUnit", unitKey);
+    localStorage.setItem("IPPONUnit", unitKey);
     setGateOpen(false);
     pushToast(`Você está na unidade ${units[unitKey].label}.`);
   };
@@ -324,7 +324,7 @@ const App = () => {
             transition={{ duration: 0.6 }}
           >
             <div className="preloader-ring"></div>
-            <div className="preloader-logo">IPON</div>
+            <div className="preloader-logo">IPPON</div>
             <p>Carregando experiência sensorial</p>
           </motion.div>
         )}
@@ -343,7 +343,7 @@ const App = () => {
             <div className="gate-ambient"></div>
             <div className="gate-content">
               <span className="gate-kicker">Selecione sua unidade</span>
-              <h1>IPON</h1>
+              <h1>IPPON</h1>
               <p className="gate-lead">Mais do que comida japonesa. Uma experiência sensorial de luxo absoluto.</p>
 
               <div className="unit-options">
@@ -388,9 +388,9 @@ const App = () => {
       >
         <header className="site-header">
           <div className="container nav">
-            <a className="logo" href="#top" aria-label="IPON">
+            <a className="logo" href="#top" aria-label="IPPON">
               <span className="logo-mark">I</span>
-              <span className="logo-text">IPON</span>
+              <span className="logo-text">IPPON</span>
             </a>
 
             <nav className={`menu ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)}>
@@ -482,7 +482,7 @@ const App = () => {
               {[
                 { label: "Seleção diária", value: "+28 ingredientes premium" },
                 { label: "Experiência sensorial", value: "Harmonização exclusiva" },
-                { label: "Chef exclusivo", value: "Assinatura IPON" }
+                { label: "Chef exclusivo", value: "Assinatura IPPON" }
               ].map((item) => (
                 <motion.div key={item.label} className="prestige-card" variants={fadeUp} whileHover={hoverLift}>
                   <span>{item.label}</span>
@@ -497,7 +497,7 @@ const App = () => {
               <motion.div className="section-header" variants={fadeUp}>
                 <div>
                   <p className="eyebrow">Pratos premium</p>
-                  <h2>O auge da experiência IPON.</h2>
+                  <h2>O auge da experiência IPPON.</h2>
                   <p className="muted">Criações autorais com ingredientes raros e apresentação de alto impacto.</p>
                 </div>
               </motion.div>
@@ -517,7 +517,7 @@ const App = () => {
                   },
                   {
                     title: "Tartar de Bluefin Trufado",
-                    tag: "Experiência IPON",
+                    tag: "Experiência IPPON",
                     text: "Textura cremosa com yuzu kosho, finalização cítrica e microbrotos.",
                     image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=1200&q=80"
                   }
@@ -554,7 +554,7 @@ const App = () => {
                 <p className="eyebrow">A marca</p>
                 <h2>Uma casa para quem busca excelência sem concessões.</h2>
                 <p>
-                  O IPON nasceu para traduzir a sofisticação de Tóquio em uma experiência contemporânea. Cada prato é tratado
+                  O IPPON nasceu para traduzir a sofisticação de Tóquio em uma experiência contemporânea. Cada prato é tratado
                   como peça de alta joalheria: preciso, raro e memorável.
                 </p>
                 <p>
@@ -590,7 +590,7 @@ const App = () => {
               <motion.div className="section-header" variants={fadeUp}>
                 <div>
                   <p className="eyebrow">Destaques</p>
-                  <h2>O que torna o IPON inesquecível.</h2>
+                  <h2>O que torna o IPPON inesquecível.</h2>
                   <p className="muted">Combos, rituais e curadoria com assinatura da casa.</p>
                 </div>
               </motion.div>
@@ -604,7 +604,7 @@ const App = () => {
                   },
                   {
                     title: "Ritual Omakase",
-                    tag: "Experiência IPON",
+                    tag: "Experiência IPPON",
                     text: "Um menu fechado com degustação guiada e harmonização premium.",
                     price: "R$ 289"
                   },
@@ -831,7 +831,7 @@ const App = () => {
                     name: "Marina R. · Executiva"
                   },
                   {
-                    quote: "Omakase impecável, sabores limpos e atendimento silencioso. IPON virou referência.",
+                    quote: "Omakase impecável, sabores limpos e atendimento silencioso. IPPON virou referência.",
                     name: "Felipe H. · Arquiteto"
                   },
                   {
@@ -899,7 +899,7 @@ const App = () => {
                       >
                         WhatsApp da unidade
                       </motion.a>
-                      <motion.a className="btn ghost" href={`mailto:${unit.key}@ipon.com.br`} whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
+                      <motion.a className="btn ghost" href={`mailto:${unit.key}@IPPON.com.br`} whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
                         Enviar e-mail
                       </motion.a>
                     </div>
@@ -915,13 +915,13 @@ const App = () => {
         <footer className="site-footer">
           <div className="container footer-grid">
             <div>
-              <span className="logo-text">IPON</span>
+              <span className="logo-text">IPPON</span>
               <p>Restaurante japonês de luxo extremo com foco em omakase e cozinha autoral.</p>
             </div>
             <div>
               <h4>Contato</h4>
-              <p>mococa@ipon.com.br</p>
-              <p>rpd@ipon.com.br</p>
+              <p>mococa@IPPON.com.br</p>
+              <p>rpd@IPPON.com.br</p>
             </div>
             <div>
               <h4>Horário</h4>
@@ -936,7 +936,7 @@ const App = () => {
             </div>
           </div>
           <div className="footer-bottom">
-            <span>© 2026 IPON. Todos os direitos reservados.</span>
+            <span>© 2026 IPPON. Todos os direitos reservados.</span>
             <span>Luxo extremo em gastronomia japonesa.</span>
           </div>
         </footer>
@@ -981,5 +981,6 @@ const App = () => {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
+
 
 
