@@ -195,12 +195,16 @@ const menuItems = [
 const units = {
   mococa: {
     key: "mococa",
+    name: "Mococa",
+    sub: "Shopping Fonseca",
     label: "Mococa - Shopping Fonseca",
     whatsapp: "5519998881122",
     whatsappDisplay: "(19) 99888-1122"
   },
   rpd: {
     key: "rpd",
+    name: "São José do Rio Pardo",
+    sub: "Centro",
     label: "São José do Rio Pardo - Centro",
     whatsapp: "5519997703344",
     whatsappDisplay: "(19) 99770-3344"
@@ -260,6 +264,7 @@ const App = () => {
   const [filter, setFilter] = useState("all");
   const [cart, setCart] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unitMenuOpen, setUnitMenuOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [lastAdded, setLastAdded] = useState("");
   const [loading, setLoading] = useState(true);
@@ -288,6 +293,42 @@ const App = () => {
     document.body.classList.toggle("is-locked", gateOpen);
     document.body.classList.toggle("entered", !gateOpen);
   }, [gateOpen]);
+
+  useEffect(() => {
+    if (!unitMenuOpen) return;
+
+    const handleClick = (event) => {
+      if (!event.target.closest(".unit-switch")) {
+        setUnitMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setUnitMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [unitMenuOpen]);
+
+  useEffect(() => {
+    if (gateOpen) {
+      setUnitMenuOpen(false);
+    }
+  }, [gateOpen]);
+
+  useEffect(() => {
+    if (menuOpen) {
+      setUnitMenuOpen(false);
+    }
+  }, [menuOpen]);
 
   const pushToast = (message) => {
     const id = `${Date.now()}-${Math.random()}`;
@@ -367,6 +408,8 @@ const App = () => {
     setSelectedUnit(unitKey);
     localStorage.setItem("IPPONUnit", unitKey);
     setGateOpen(false);
+    setUnitMenuOpen(false);
+    setMenuOpen(false);
     pushToast(`Você está na unidade ${units[unitKey].label}.`);
   };
 
@@ -471,15 +514,41 @@ const App = () => {
             </nav>
 
             <div className="nav-actions">
-              <span className="current-unit">{currentUnit.label}</span>
-              <motion.button
-                className="btn ghost swap-unit"
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setGateOpen(true)}
-              >
-                Trocar unidade
-              </motion.button>
+              <div className="unit-switch">
+                <motion.button
+                  className="current-unit unit-toggle"
+                  whileHover={{ y: -1 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setUnitMenuOpen((prev) => !prev)}
+                  aria-expanded={unitMenuOpen}
+                  aria-haspopup="listbox"
+                >
+                  <span>{currentUnit.label}</span>
+                  <span className={`unit-chevron ${unitMenuOpen ? "open" : ""}`}>▾</span>
+                </motion.button>
+                <AnimatePresence>
+                  {unitMenuOpen && (
+                    <motion.div
+                      className="unit-dropdown"
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.25, ease: [0.22, 0.61, 0.36, 1] }}
+                    >
+                      {Object.values(units).map((unit) => (
+                        <button
+                          key={unit.key}
+                          className={`unit-option ${currentUnitKey === unit.key ? "active" : ""}`}
+                          onClick={() => handleSelectUnit(unit.key)}
+                        >
+                          <span className="option-title">{unit.name}</span>
+                          <span className="option-sub">{unit.sub}</span>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
               <button className="menu-toggle" aria-label="Abrir menu" onClick={() => setMenuOpen(!menuOpen)}>
                 <span></span><span></span><span></span>
               </button>
@@ -1053,9 +1122,12 @@ root.render(<App />);
 
 
 
+
 </script>
 </body>
 </html>
+
+
 
 
 
