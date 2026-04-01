@@ -1,5 +1,5 @@
 ﻿
-const { useEffect, useMemo, useState } = React;
+const { useEffect, useMemo, useState, useRef } = React;
 const framer = window.framerMotion || window.FramerMotion;
 const fallbackMotion = new Proxy(
   {},
@@ -201,6 +201,30 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [cartPulse, setCartPulse] = useState(false);
   const [ctaPulse, setCtaPulse] = useState(false);
+  const [orderType, setOrderType] = useState("delivery");
+  const [paymentMethod, setPaymentMethod] = useState("pix");
+  const [needChange, setNeedChange] = useState(false);
+  const [isCepLoading, setIsCepLoading] = useState(false);
+  const formDataRef = useRef({
+    name: "",
+    cep: "",
+    street: "",
+    number: "",
+    district: "",
+    city: "",
+    state: "",
+    complement: "",
+    change: ""
+  });
+  const nameRef = useRef(null);
+  const cepRef = useRef(null);
+  const streetRef = useRef(null);
+  const numberRef = useRef(null);
+  const districtRef = useRef(null);
+  const cityRef = useRef(null);
+  const stateRef = useRef(null);
+  const complementRef = useRef(null);
+  const changeRef = useRef(null);
 
   const currentUnitKey = selectedUnit || "mococa";
   const currentUnit = units[currentUnitKey];
@@ -212,8 +236,9 @@ const App = () => {
 
   const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const deliveryFee = 12;
+  const deliveryFee = orderType === "delivery" && cart.length > 0 ? 8 : 0;
   const totalWithFee = cart.length > 0 ? subtotal + deliveryFee : 0;
+  const deliveryLabel = orderType === "delivery" ? "Entrega" : "Retirada no balcão";
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 900);
@@ -234,18 +259,10 @@ const App = () => {
       }
     };
 
-    const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        setUnitMenuOpen(false);
-      }
-    };
-
     document.addEventListener("click", handleClick);
-    document.addEventListener("keydown", handleEscape);
 
     return () => {
       document.removeEventListener("click", handleClick);
-      document.removeEventListener("keydown", handleEscape);
     };
   }, [unitMenuOpen]);
 
@@ -260,6 +277,70 @@ const App = () => {
       setUnitMenuOpen(false);
     }
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (paymentMethod !== "cash") {
+      setNeedChange(false);
+      if (changeRef.current) {
+        changeRef.current.value = "";
+      }
+      formDataRef.current.change = "";
+    }
+  }, [paymentMethod]);
+
+  const updateFormValue = (key, value) => {
+    formDataRef.current[key] = value;
+  };
+
+  const handleCepChange = (event) => {
+    const digits = event.target.value.replace(/\D/g, "").slice(0, 8);
+    event.target.value = digits;
+    updateFormValue("cep", digits);
+  };
+
+  const handleCepLookup = async () => {
+    const cepValue = formDataRef.current.cep || "";
+    if (cepValue.length !== 8) return;
+    setIsCepLoading(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepValue}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        pushToast("CEP não encontrado. Verifique e tente novamente.");
+        return;
+      }
+      const streetValue = data.logradouro || "";
+      const districtValue = data.bairro || "";
+      const cityValue = data.localidade || "";
+      const stateValue = data.uf || "";
+
+      if (streetRef.current) streetRef.current.value = streetValue;
+      if (districtRef.current) districtRef.current.value = districtValue;
+      if (cityRef.current) cityRef.current.value = cityValue;
+      if (stateRef.current) stateRef.current.value = stateValue;
+
+      updateFormValue("street", streetValue);
+      updateFormValue("district", districtValue);
+      updateFormValue("city", cityValue);
+      updateFormValue("state", stateValue);
+      pushToast("Endereço preenchido pelo CEP.");
+    } catch (error) {
+      pushToast("Não foi possível consultar o CEP agora.");
+    } finally {
+      setIsCepLoading(false);
+    }
+  };
+
+  const handleFormKeyDown = (event) => {
+    const target = event.target;
+    if (
+      target &&
+      (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) || target.isContentEditable)
+    ) {
+      event.stopPropagation();
+    }
+  };
+
 
   const pushToast = (message) => {
     const id = `${Date.now()}-${Math.random()}`;
@@ -325,11 +406,80 @@ const App = () => {
       return;
     }
 
+    const customerNameValue = formDataRef.current.name.trim();
+    const cepValue = formDataRef.current.cep.trim();
+    const streetValue = formDataRef.current.street.trim();
+    const numberValue = formDataRef.current.number.trim();
+    const districtValue = formDataRef.current.district.trim();
+    const cityValue = formDataRef.current.city.trim();
+    const stateValue = formDataRef.current.state.trim();
+    const complementValue = formDataRef.current.complement.trim();
+    const changeAmountValue = formDataRef.current.change.trim();
+
+    if (!customerNameValue) {
+      pushToast("Informe seu nome para continuar.");
+      return;
+    }
+
+    if (orderType === "delivery") {
+      if (cepValue.length !== 8) {
+        pushToast("Informe um CEP válido para entrega.");
+        return;
+      }
+      if (!streetValue || !numberValue || !districtValue || !cityValue || !stateValue) {
+        pushToast("Preencha o endereço completo para entrega.");
+        return;
+      }
+    }
+
+    if (paymentMethod === "cash" && needChange && !changeAmountValue) {
+      pushToast("Informe o valor para troco.");
+      return;
+    }
+
     const total = subtotal + deliveryFee;
-    const summary = cart
+    const itemsSummary = cart
       .map((item) => `• ${item.name} (x${item.qty}) - ${formatCurrency(item.price * item.qty)}`)
-      .join("%0A");
-    const message = `Olá! Gostaria de fazer um pedido na unidade ${currentUnit.label}:%0A${summary}%0A%0ASubtotal: ${formatCurrency(subtotal)}%0AEntrega: ${formatCurrency(deliveryFee)}%0ATotal: ${formatCurrency(total)}%0A%0ANome:%0AEndereço:%0AForma de pagamento:`;
+      .join("\n");
+
+    const addressLines =
+      orderType === "delivery"
+        ? [
+            `CEP: ${cepValue}`,
+            `Endereço: ${streetValue}, ${numberValue}`,
+            `Bairro: ${districtValue}`,
+            `Cidade/UF: ${cityValue} - ${stateValue}`,
+            complementValue ? `Complemento: ${complementValue}` : null
+          ].filter(Boolean)
+        : ["Retirada no balcão"];
+
+    const paymentLines = [
+      `Forma de pagamento: ${
+        paymentMethod === "pix" ? "Pix" : paymentMethod === "card" ? "Cartão" : "Dinheiro"
+      }`,
+      paymentMethod === "cash"
+        ? needChange
+          ? `Precisa de troco: Sim (troco para ${changeAmount})`
+          : "Precisa de troco: Não"
+        : null
+    ].filter(Boolean);
+
+    const lines = [
+      `Olá! Gostaria de fazer um pedido na unidade ${currentUnit.label}.`,
+      "",
+      "Itens do pedido:",
+      itemsSummary,
+      "",
+      `Subtotal: ${formatCurrency(subtotal)}`,
+      `${deliveryLabel}: ${formatCurrency(deliveryFee)}`,
+      `Total: ${formatCurrency(total)}`,
+      "",
+      `Nome: ${customerNameValue}`,
+      ...addressLines,
+      ...paymentLines
+    ];
+
+    const message = encodeURIComponent(lines.join("\n"));
     const url = `https://wa.me/${currentUnit.whatsapp}?text=${message}`;
 
     window.open(url, "_blank");
@@ -390,7 +540,7 @@ const App = () => {
               <p className="gate-lead">Mais do que comida japonesa. Uma experiência sensorial de luxo absoluto.</p>
 
               <div className="unit-options">
-                <motion.button
+                <motion.button type="button"
                   className="unit-card"
                   data-unit="mococa"
                   whileHover={{ y: -6, scale: 1.01 }}
@@ -401,7 +551,7 @@ const App = () => {
                   <span className="unit-sub">Shopping Fonseca</span>
                   <span className="unit-action">Entrar</span>
                 </motion.button>
-                <motion.button
+                <motion.button type="button"
                   className="unit-card"
                   data-unit="rpd"
                   whileHover={{ y: -6, scale: 1.01 }}
@@ -446,7 +596,7 @@ const App = () => {
 
             <div className="nav-actions">
               <div className="unit-switch">
-                <motion.button
+                <motion.button type="button"
                   className="current-unit unit-toggle"
                   whileHover={{ y: -1 }}
                   whileTap={{ scale: 0.98 }}
@@ -467,7 +617,7 @@ const App = () => {
                       transition={{ duration: 0.25, ease: [0.22, 0.61, 0.36, 1] }}
                     >
                       {Object.values(units).map((unit) => (
-                        <button
+                        <button type="button"
                           key={unit.key}
                           className={`unit-option ${currentUnitKey === unit.key ? "active" : ""}`}
                           onClick={() => handleSelectUnit(unit.key)}
@@ -480,7 +630,7 @@ const App = () => {
                   )}
                 </AnimatePresence>
               </div>
-              <button className="menu-toggle" aria-label="Abrir menu" onClick={() => setMenuOpen(!menuOpen)}>
+              <button type="button" className="menu-toggle" aria-label="Abrir menu" onClick={() => setMenuOpen(!menuOpen)}>
                 <span></span><span></span><span></span>
               </button>
             </div>
@@ -515,7 +665,7 @@ const App = () => {
                 Um ritual de luxo absoluto com ingredientes raros, cortes milimétricos e apresentação de alta joalheria.
               </motion.p>
               <motion.div className="hero-signature" variants={fadeUp}>
-                Omakase privado • Bluefin maturado • Entrega premium
+                Omakase privado • Bluefin maturado • Entrega
               </motion.div>
               <motion.div className="hero-actions" variants={fadeUp}>
                 <motion.a className="btn primary" href="#pedido" whileHover={{ y: -2 }} whileTap={{ scale: 0.98 }}>
@@ -527,16 +677,16 @@ const App = () => {
               </motion.div>
               <motion.div className="hero-info-row" variants={fadeUp}>
                 <div className="hero-info-card">
-                  <span className="hero-label">Tempo médio</span>
-                  <strong>30 min</strong>
-                </div>
-                <div className="hero-info-card">
                   <span className="hero-label">Avaliação</span>
                   <strong>4,9 de 5</strong>
                 </div>
                 <div className="hero-info-card">
                   <span className="hero-label">Especialidade</span>
                   <strong>Omakase & Bluefin</strong>
+                </div>
+                <div className="hero-info-card">
+                  <span className="hero-label">Atendimento</span>
+                  <strong>Concierge dedicado</strong>
                 </div>
               </motion.div>
             </motion.div>
@@ -602,7 +752,7 @@ const App = () => {
                       <span className="tag">{card.tag}</span>
                       <h3>{card.title}</h3>
                       <p>{card.text}</p>
-                      <motion.button
+                      <motion.button type="button"
                         className="btn small ghost"
                         whileHover={{ y: -2 }}
                         whileTap={{ scale: 0.98 }}
@@ -694,7 +844,7 @@ const App = () => {
                     <h3>{item.title}</h3>
                     <p>{item.text}</p>
                     <div className="price">{item.price}</div>
-                    <motion.button
+                    <motion.button type="button"
                       className="btn small"
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.98 }}
@@ -730,7 +880,7 @@ const App = () => {
                   { key: "especiais", label: "Especiais da casa" },
                   { key: "bebidas", label: "Bebidas" }
                 ].map((category) => (
-                  <motion.button
+                  <motion.button type="button"
                     key={category.key}
                     className={`filter-btn ${filter === category.key ? "active" : ""}`}
                     whileHover={{ y: -2 }}
@@ -764,7 +914,7 @@ const App = () => {
                         </div>
                         <div className="menu-actions">
                           <span className="menu-price">{formatCurrency(item.price)}</span>
-                          <motion.button
+                          <motion.button type="button"
                             className={`btn small primary ${isAdded ? "is-added" : ""}`}
                             whileHover={{ y: -2 }}
                             whileTap={{ scale: 0.97 }}
@@ -851,37 +1001,226 @@ const App = () => {
                         <div className="cart-item-row">
                           <span>{formatCurrency(item.price * item.qty)}</span>
                           <div className="cart-actions">
-                            <button onClick={() => changeQuantity(item.name, -1)}>-</button>
-                            <button onClick={() => changeQuantity(item.name, 1)}>+</button>
+                            <button type="button" onClick={() => changeQuantity(item.name, -1)}>-</button>
+                            <button type="button" onClick={() => changeQuantity(item.name, 1)}>+</button>
                           </div>
                         </div>
                       </li>
                     ))
                   )}
                 </ul>
-                <div className="cart-summary">
-                  <div>
-                    <span>Subtotal</span>
-                    <strong className="cart-total">{formatCurrency(subtotal)}</strong>
-                  </div>
-                  <div>
-                    <span>Entrega premium</span>
-                    <strong className="cart-fee">{formatCurrency(deliveryFee)}</strong>
-                  </div>
-                  <div className="cart-total-row">
-                    <span>Total</span>
-                    <strong>{formatCurrency(totalWithFee)}</strong>
-                  </div>
-                </div>
-                <motion.button
-                  className="btn primary"
-                  whileHover={{ y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleCheckout}
+                <form
+                  className="checkout-form"
+                  onSubmit={(event) => event.preventDefault()}
+                  onKeyDown={handleFormKeyDown}
                 >
-                  Finalizar no WhatsApp
-                </motion.button>
-                <p className="cart-disclaimer">Pedidos acima de R$ 180 ganham sobremesa do dia.</p>
+                  <div className="form-section">
+                    <span className="form-label">Tipo de pedido</span>
+                    <div className="radio-group">
+                      <button
+                        type="button"
+                        className={`radio-pill ${orderType === "delivery" ? "active" : ""}`}
+                        onClick={() => setOrderType("delivery")}
+                      >
+                        Entrega
+                      </button>
+                      <button
+                        type="button"
+                        className={`radio-pill ${orderType === "pickup" ? "active" : ""}`}
+                        onClick={() => setOrderType("pickup")}
+                      >
+                        Retirada
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="form-section">
+                    <label className="form-label" htmlFor="customerName">Nome</label>
+                    <input
+                      id="customerName"
+                      className="form-input"
+                      type="text"
+                      placeholder="Seu nome"
+                      ref={nameRef}
+                      defaultValue={formDataRef.current.name}
+                      onChange={(event) => updateFormValue("name", event.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-section">
+                    <span className="form-label">Pagamento</span>
+                    <div className="radio-group">
+                      <button
+                        type="button"
+                        className={`radio-pill ${paymentMethod === "pix" ? "active" : ""}`}
+                        onClick={() => setPaymentMethod("pix")}
+                      >
+                        Pix
+                      </button>
+                      <button
+                        type="button"
+                        className={`radio-pill ${paymentMethod === "card" ? "active" : ""}`}
+                        onClick={() => setPaymentMethod("card")}
+                      >
+                        Cartão
+                      </button>
+                      <button
+                        type="button"
+                        className={`radio-pill ${paymentMethod === "cash" ? "active" : ""}`}
+                        onClick={() => setPaymentMethod("cash")}
+                      >
+                        Dinheiro
+                      </button>
+                    </div>
+                    {paymentMethod === "cash" && (
+                      <div className="form-grid two">
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={needChange}
+                            onChange={(event) => setNeedChange(event.target.checked)}
+                          />
+                          Precisa de troco?
+                        </label>
+                        {needChange && (
+                          <input
+                            className="form-input"
+                            type="text"
+                            placeholder="Troco para quanto?"
+                            ref={changeRef}
+                            defaultValue={formDataRef.current.change}
+                            onChange={(event) => updateFormValue("change", event.target.value)}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {orderType === "delivery" && (
+                    <div className="form-section">
+                      <span className="form-label">Entrega</span>
+                      <div className="form-grid two">
+                        <div className="form-field">
+                          <label className="form-label" htmlFor="cep">CEP</label>
+                          <input
+                            id="cep"
+                            className="form-input"
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="00000000"
+                            ref={cepRef}
+                            onChange={handleCepChange}
+                            onBlur={handleCepLookup}
+                            defaultValue={formDataRef.current.cep}
+                          />
+                          <span className="form-hint">
+                            {isCepLoading ? "Consultando CEP..." : "Auto preenchimento pelo CEP"}
+                          </span>
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label" htmlFor="number">Número</label>
+                          <input
+                            id="number"
+                            className="form-input"
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="Número"
+                            ref={numberRef}
+                            defaultValue={formDataRef.current.number}
+                            onChange={(event) => updateFormValue("number", event.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="form-field">
+                        <label className="form-label" htmlFor="street">Rua</label>
+                        <input
+                          id="street"
+                          className="form-input"
+                          type="text"
+                          placeholder="Rua / Avenida"
+                          ref={streetRef}
+                          defaultValue={formDataRef.current.street}
+                          onChange={(event) => updateFormValue("street", event.target.value)}
+                        />
+                      </div>
+                      <div className="form-grid two">
+                        <div className="form-field">
+                          <label className="form-label" htmlFor="district">Bairro</label>
+                          <input
+                            id="district"
+                            className="form-input"
+                            type="text"
+                            placeholder="Bairro"
+                            ref={districtRef}
+                            defaultValue={formDataRef.current.district}
+                            onChange={(event) => updateFormValue("district", event.target.value)}
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label" htmlFor="city">Cidade</label>
+                          <input
+                            id="city"
+                            className="form-input"
+                            type="text"
+                            placeholder="Cidade"
+                            ref={cityRef}
+                            defaultValue={formDataRef.current.city}
+                            onChange={(event) => updateFormValue("city", event.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="form-grid two">
+                        <div className="form-field">
+                          <label className="form-label" htmlFor="stateRegion">Estado</label>
+                          <input
+                            id="stateRegion"
+                            className="form-input"
+                            type="text"
+                            placeholder="UF"
+                            ref={stateRef}
+                            defaultValue={formDataRef.current.state}
+                            onChange={(event) => updateFormValue("state", event.target.value)}
+                          />
+                        </div>
+                        <div className="form-field">
+                          <label className="form-label" htmlFor="complement">Complemento</label>
+                          <input
+                            id="complement"
+                            className="form-input"
+                            type="text"
+                            placeholder="Apto, bloco, referência"
+                            ref={complementRef}
+                            defaultValue={formDataRef.current.complement}
+                            onChange={(event) => updateFormValue("complement", event.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="cart-summary">
+                    <div>
+                      <span>Subtotal</span>
+                      <strong className="cart-total">{formatCurrency(subtotal)}</strong>
+                    </div>
+                    <div>
+                      <span>{deliveryLabel}</span>
+                      <strong className="cart-fee">{formatCurrency(deliveryFee)}</strong>
+                    </div>
+                    <div className="cart-total-row">
+                      <span>Total</span>
+                      <strong>{formatCurrency(totalWithFee)}</strong>
+                    </div>
+                  </div>
+                  <motion.button type="button"
+                    className="btn primary"
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleCheckout}
+                  >
+                    Finalizar no WhatsApp
+                  </motion.button>
+                  <p className="cart-disclaimer">Pedidos acima de R$ 180 ganham sobremesa do dia.</p>
+                </form>
               </motion.aside>
             </div>
           </Section>
@@ -1050,6 +1389,7 @@ const App = () => {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);
+
 
 
 
